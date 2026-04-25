@@ -218,4 +218,4 @@ Proyecto educativo - Parcial 1 Programación 4
 
 **¡Listo para usar con TypeScript!** 🚀
 
-HOLA DESDE EL FONT 2
+HOLA DESDE MASTER
