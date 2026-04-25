@@ -1,0 +1,122 @@
+/* Ingredientes Chip styles */
+.ingredientes-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.ingrediente-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-sm);
+  background: var(--color-bg);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.ingrediente-chip .cantidad {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+/* Ingrediente item in modal */
+.ingredientes-list {
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.ingredientes-list h4 {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.ingrediente-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ingrediente-item:last-child {
+  border-bottom: none;
+}
+
+.ingrediente-item:first-child {
+  padding-top: 0;
+}
+
+.ingrediente-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+}
+
+.ingrediente-info strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Better empty state */
+.empty-state .empty-state-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.empty-state .empty-state-text {
+  color: var(--color-text-muted);
+}
+
+.empty-state.mt-md {
+  margin-top: var(--space-md);
+}
+
+/* Header toolbar responsive */
+@media (max-width: 768px) {
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-toolbar {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .header-toolbar .search-input,
+  .header-toolbar .search-select {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .header-toolbar .btn {
+    width: 100%;
+  }
+}
+
+/* Row disabled styles */
+.row-disabled {
+  opacity: 0.6;
+}
+
+.row-disabled:hover {
+  background: var(--color-bg);
+}
+
+/* Badge warning */
+.badge-warning {
+  background: var(--color-warning-light);
+  color: #92400e;
+}
+
+/* Margin small */
+.ms-sm {
+  margin-left: var(--space-xs);
+}

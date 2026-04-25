@@ -234,3 +234,21 @@ def eliminar_categoria(
     - Si categoria_id no existe → 404 Not Found (del service)
     """
     service.delete(categoria_id)
+
+
+# ========== ENDPOINT 6: VERIFICAR SI CATEGORÍA ESTÁ EN USO ==========
+@router.get("/{categoria_id}/en-uso")
+def verificar_categoria_en_uso(
+    categoria_id: int,
+    service: CategoriaServiceDep
+):
+    """
+    Verifica si una categoría está en uso (tiene productos asociados)
+    
+    EJEMPLO:
+    GET /categorias/5/en-uso
+    
+    RESPUESTA:
+    {"en_uso": true, "cantidad": 3}  o  {"en_uso": false, "cantidad": 0}
+    """
+    return service.esta_en_uso(categoria_id)

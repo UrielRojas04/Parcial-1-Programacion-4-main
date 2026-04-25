@@ -1,6 +1,6 @@
 """
 SERVICE: CategoriaService
-=========================
+========================
 
 PROPÓSITO:
 - Contiene TODA la lógica de negocio para categorías
@@ -23,8 +23,9 @@ DIFERENCIA CON ROUTERS:
 """
 
 from fastapi import HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select, func
 from models.categoria import Categoria
+from models.producto import Producto
 from uow import UnitOfWork
 
 
@@ -188,3 +189,31 @@ class CategoriaService:
         self.get_by_id(categoria_id)  # Valida existencia
         self.uow.categorias.delete(categoria_id)  # Elimina
         self.uow.commit()  # Confirma
+
+    def esta_en_uso(self, categoria_id: int) -> dict:
+        """
+        VERIFICAR SI UNA CATEGORÍA ESTÁ EN USO
+        
+        PARÁMETRO:
+        - categoria_id: ID de la categoría
+        
+        FLUJO:
+        1. Cuenta cuántos productos tienen esta categoría
+        2. Retorna si está en uso y la cantidad
+        
+        RETORNA:
+        {"en_uso": bool, "cantidad": int}
+        """
+        # Verificar que la categoría exista
+        self.get_by_id(categoria_id)
+        
+        # Contar productos con esta categoría
+        statement = select(func.count()).select_from(Producto).where(
+            Producto.categoria_id == categoria_id
+        )
+        cantidad = self.uow.session.exec(statement).one()
+        
+        return {
+            "en_uso": cantidad > 0,
+            "cantidad": cantidad
+        }

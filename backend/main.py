@@ -75,9 +75,10 @@ app = FastAPI(lifespan=lifespan)
 # - Solicitudes cruzadas se permiten
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend Vite en dev
-    allow_methods=["*"],  # Permite GET, POST, PUT, DELETE, etc.
-    allow_headers=["*"],  # Permite cualquier header
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ========== REGISTRAR ROUTERS ==========

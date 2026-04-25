@@ -1,0 +1,144 @@
+/* Additional utility styles */
+
+/* Search Input */
+.search-input {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  min-width: 200px;
+  transition: all var(--transition-fast);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Search Select */
+.search-select {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  min-width: 150px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.search-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Ingredientes Mini List */
+.ingredientes-mini {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  max-width: 150px;
+}
+
+.ingredientes-mini div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Full Width */
+.w-full {
+  width: 100%;
+}
+
+/* Font Medium */
+.font-medium {
+  font-weight: 600;
+}
+
+/* Badge variants */
+.badge-secondary {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+}
+
+/* Form Row */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+@media (max-width: 480px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Page transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all var(--transition-base);
+}
+
+/* Table row animation */
+tbody tr {
+  animation: fadeIn var(--transition-base) ease;
+}
+
+/* Better table styles */
+.table-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.table-container table {
+  background: var(--color-surface);
+}
+
+.table-container th {
+  background: var(--color-bg);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+}
+
+.table-container td {
+  vertical-align: middle;
+}
+
+/* Icon button */
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.icon-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}

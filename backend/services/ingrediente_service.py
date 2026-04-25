@@ -1,6 +1,6 @@
 """
 SERVICE: IngredienteService
-===========================
+==========================
 
 PROPÓSITO:
 - Lógica de negocio para ingredientes
@@ -21,8 +21,9 @@ PATRÓN UNIVERSAL:
 """
 
 from fastapi import HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select, func
 from models.ingrediente import Ingrediente
+from models.producto_ingrediente import ProductoIngrediente
 from uow import UnitOfWork
 
 
@@ -139,3 +140,31 @@ class IngredienteService:
         self.get_by_id(ingrediente_id)
         self.uow.ingredientes.delete(ingrediente_id)
         self.uow.commit()
+
+    def esta_en_uso(self, ingrediente_id: int) -> dict:
+        """
+        VERIFICAR SI UN INGREDIENTE ESTÁ EN USO
+        
+        PARÁMETRO:
+        - ingrediente_id: ID del ingrediente
+        
+        FLUJO:
+        1. Verifica que el ingrediente exista
+        2. Cuenta cuántos productos lo usan
+        
+        RETORNA:
+        {"en_uso": bool, "cantidad": int}
+        """
+        # Verificar que el ingrediente exista
+        self.get_by_id(ingrediente_id)
+        
+        # Contar productos que usan este ingrediente
+        statement = select(func.count()).select_from(ProductoIngrediente).where(
+            ProductoIngrediente.ingrediente_id == ingrediente_id
+        )
+        cantidad = self.uow.session.exec(statement).one()
+        
+        return {
+            "en_uso": cantidad > 0,
+            "cantidad": cantidad
+        }
