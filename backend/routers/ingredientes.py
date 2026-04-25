@@ -124,3 +124,21 @@ def eliminar_ingrediente(ingrediente_id: int, service: IngredienteServiceDep):
     (vacía, solo 204 No Content)
     """
     service.delete(ingrediente_id)
+
+
+# ========== ENDPOINT 6: VERIFICAR SI INGREDIENTE ESTÁ EN USO ==========
+@router.get("/{ingrediente_id}/en-uso")
+def verificar_ingrediente_en_uso(
+    ingrediente_id: int,
+    service: IngredienteServiceDep
+):
+    """
+    Verifica si un ingrediente está en uso (está en productos)
+    
+    EJEMPLO:
+    GET /ingredientes/5/en-uso
+    
+    RESPUESTA:
+    {"en_uso": true, "cantidad": 3}  o  {"en_uso": false, "cantidad": 0}
+    """
+    return service.esta_en_uso(ingrediente_id)

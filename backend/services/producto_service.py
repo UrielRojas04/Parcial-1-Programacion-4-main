@@ -73,10 +73,11 @@ class ProductoService:
         RETORNA:
         List[Producto] con ingrediente_links cargados
         """
+        from sqlalchemy import func
         statement = select(Producto)
         if nombre:
-            # WHERE nombre CONTAINS nombre
-            statement = statement.where(Producto.nombre.contains(nombre))
+            # WHERE nombre ILIKE nombre (case-insensitive)
+            statement = statement.where(func.lower(Producto.nombre).contains(nombre.lower()))
         if categoria_id:
             # WHERE categoria_id == categoria_id
             statement = statement.where(Producto.categoria_id == categoria_id)

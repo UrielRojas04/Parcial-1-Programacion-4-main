@@ -59,6 +59,7 @@ class ProductoIngrediente(SQLModel, table=True):
     producto_id: Optional[int] = Field(
         default=None, 
         foreign_key="producto.id", 
+        ondelete="CASCADE",
         primary_key=True
     )
     

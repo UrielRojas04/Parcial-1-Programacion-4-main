@@ -36,6 +36,11 @@ export interface Producto {
   ingrediente_links?: ProductoIngrediente[];
 }
 
+export interface EnUsoResponse {
+  en_uso: boolean;
+  cantidad: number;
+}
+
 // ============ CATEGORÍAS ============
 export const categoriaService = {
   getAll: (params?: Record<string, unknown>) => 
@@ -48,6 +53,8 @@ export const categoriaService = {
     api.put<Categoria>(`/categorias/${id}`, data),
   delete: (id: number) => 
     api.delete(`/categorias/${id}`),
+  verificarEnUso: (id: number) => 
+    api.get<EnUsoResponse>(`/categorias/${id}/en-uso`),
 };
 
 // ============ INGREDIENTES ============
@@ -62,6 +69,8 @@ export const ingredienteService = {
     api.put<Ingrediente>(`/ingredientes/${id}`, data),
   delete: (id: number) => 
     api.delete(`/ingredientes/${id}`),
+  verificarEnUso: (id: number) => 
+    api.get<EnUsoResponse>(`/ingredientes/${id}/en-uso`),
 };
 
 // ============ PRODUCTOS ============

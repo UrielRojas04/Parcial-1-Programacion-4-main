@@ -1,45 +1,46 @@
 import { useState, useEffect, FC } from 'react';
 import { categoriaService, Categoria } from '../services/api';
-
-interface FormData {
-  nombre: string;
-  descripcion: string;
-}
-
-interface Pagination {
-  offset: number;
-  limit: number;
-}
+import { useToast } from '../context/ToastContext';
+import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const PaginaCategorias: FC = () => {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [categoriaToDelete, setCategoriaToDelete] = useState<Categoria | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [searchNombre, setSearchNombre] = useState('');
-  const [pagination, setPagination] = useState<Pagination>({ offset: 0, limit: 10 });
+  const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
+  const [categoriasEnUso, setCategoriasEnUso] = useState<Set<number>>(new Set());
+  
+  const { showToast } = useToast();
 
-  const [formData, setFormData] = useState<FormData>({
-    nombre: '',
-    descripcion: '',
-  });
-
-  // Cargar categorías
-  const cargarCategorias = async (offset: number = 0) => {
+  const cargarCategorias = async () => {
     setLoading(true);
-    setError('');
     try {
-      const response = await categoriaService.getAll({
+      const response = await categoriaService.getAll({ 
         nombre: searchNombre || undefined,
-        offset,
-        limit: pagination.limit,
+        limit: 100
       });
       setCategorias(response.data);
-      setPagination(prev => ({ ...prev, offset }));
-    } catch (err: any) {
-      setError('Error al cargar categorías: ' + (err.response?.data?.detail || err.message));
+      
+      // Check which categories are in use
+      const enUso = new Set<number>();
+      for (const cat of response.data) {
+        try {
+          const res = await categoriaService.verificarEnUso(cat.id);
+          if (res.data.en_uso) {
+            enUso.add(cat.id);
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+      setCategoriasEnUso(enUso);
+    } catch {
+      showToast('error', 'Error al cargar categorias');
     } finally {
       setLoading(false);
     }
@@ -49,196 +50,212 @@ const PaginaCategorias: FC = () => {
     cargarCategorias();
   }, [searchNombre]);
 
-  // Manejar submit del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!formData.nombre.trim()) {
-      setError('El nombre es requerido');
+    const nombreTrim = formData.nombre.trim();
+    if (!nombreTrim) {
+      showToast('error', 'El nombre es requerido');
       return;
     }
 
     try {
       if (editingId) {
-        await categoriaService.update(editingId, formData);
-        setSuccess('Categoría actualizada correctamente');
+        // Check if trying to edit a category in use
+        if (categoriasEnUso.has(editingId)) {
+          showToast('error', 'No se puede editar - esta en uso');
+          return;
+        }
+        await categoriaService.update(editingId, { 
+          nombre: nombreTrim, 
+          descripcion: formData.descripcion 
+        });
+        showToast('success', 'Categoria actualizada');
       } else {
-        await categoriaService.create(formData);
-        setSuccess('Categoría creada correctamente');
+        await categoriaService.create({ 
+          nombre: nombreTrim, 
+          descripcion: formData.descripcion 
+        });
+        showToast('success', 'Categoria creada');
       }
       resetForm();
-      cargarCategorias(0);
+      cargarCategorias();
     } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
+      showToast('error', err.response?.data?.detail || 'Error al guardar');
     }
   };
 
-  // Editar categoría
   const handleEdit = (categoria: Categoria) => {
-    setFormData({
-      nombre: categoria.nombre,
-      descripcion: categoria.descripcion || '',
-    });
-    setEditingId(categoria.id);
-    setShowForm(true);
-  };
-
-  // Eliminar categoría
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Está seguro de que desea eliminar esta categoría?')) return;
-
-    try {
-      await categoriaService.delete(id);
-      setSuccess('Categoría eliminada correctamente');
-      cargarCategorias(0);
-    } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
+    // Check if in use
+    if (categoriasEnUso.has(categoria.id)) {
+      showToast('error', 'No se puede editar - esta en uso');
+      return;
     }
+    setFormData({ nombre: categoria.nombre, descripcion: categoria.descripcion || '' });
+    setEditingId(categoria.id);
+    setShowModal(true);
   };
 
-  // Reset del formulario
+  const handleDeleteClick = (categoria: Categoria) => {
+    if (categoriasEnUso.has(categoria.id)) {
+      showToast('error', 'No se puede eliminar - esta en uso');
+      return;
+    }
+    setCategoriaToDelete(categoria);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!categoriaToDelete) return;
+    try {
+      await categoriaService.delete(categoriaToDelete.id);
+      showToast('success', 'Categoria eliminada');
+      cargarCategorias();
+    } catch (err: any) {
+      showToast('error', 'No se puede eliminar');
+    }
+    setCategoriaToDelete(null);
+  };
+
   const resetForm = () => {
     setFormData({ nombre: '', descripcion: '' });
     setEditingId(null);
-    setShowForm(false);
+    setShowModal(false);
   };
+
+  // Filter categorias client-side for case-insensitive search
+  const filteredCategorias = searchNombre
+    ? categorias.filter(c => 
+        c.nombre.toLowerCase().includes(searchNombre.toLowerCase()) ||
+        (c.descripcion && c.descripcion.toLowerCase().includes(searchNombre.toLowerCase()))
+      )
+    : categorias;
 
   return (
     <div className="container">
-      <h2 className="section-title">📂 Gestión de Categorías</h2>
-
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-
-      {/* Barra de búsqueda */}
-      <div className="form-group">
-        <input
-          type="text"
-          placeholder="Buscar categoría por nombre..."
-          value={searchNombre}
-          onChange={(e) => setSearchNombre(e.target.value)}
-        />
+      {/* Header */}
+      <div className="header-actions">
+        <h2 className="header-title">Categorias</h2>
+        
+        <div className="header-toolbar">
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Buscar por nombre o descripcion..."
+            value={searchNombre}
+            onChange={(e) => setSearchNombre(e.target.value)}
+          />
+          <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            + Nueva
+          </button>
+        </div>
       </div>
 
-      {/* Botón agregar */}
-      <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-        ➕ Nueva Categoría
-      </button>
-
-      {/* Formulario modal */}
-      {showForm && (
-        <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {editingId ? '✏️ Editar Categoría' : '➕ Nueva Categoría'}
-              </h3>
-              <button className="modal-close" onClick={resetForm}>✕</button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Nombre *</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  maxLength={50}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Descripción</label>
-                <textarea
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  maxLength={200}
-                />
-              </div>
-
-              <div className="btn-group">
-                <button type="submit" className="btn btn-success">
-                  {editingId ? '💾 Actualizar' : '➕ Crear'}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={resetForm}>
-                  ✕ Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Tabla de categorías */}
+      {/* Loading */}
       {loading ? (
-        <div className="loading">
+        <div className="loading-container">
           <div className="spinner"></div>
-          <p>Cargando...</p>
+        </div>
+      ) : filteredCategorias.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-title">
+            {searchNombre ? 'No se encontraron categorias' : 'No hay categorias'}
+          </div>
+          <div className="empty-state-text">
+            {searchNombre ? 'Intenta con otros terminos' : 'Crea tu primera categoria'}
+          </div>
         </div>
       ) : (
-        <>
-          {categorias.length === 0 ? (
-            <div className="alert alert-info">No hay categorías para mostrar</div>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>Descripción</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categorias.map((categoria) => (
-                  <tr key={categoria.id}>
-                    <td>#{categoria.id}</td>
-                    <td>{categoria.nombre}</td>
-                    <td>{categoria.descripcion || '-'}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Descripcion</th>
+                <th style={{ width: '160px' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCategorias.map((cat) => {
+                const enUso = categoriasEnUso.has(cat.id);
+                return (
+                  <tr key={cat.id} className={enUso ? 'row-disabled' : ''}>
+                    <td className="font-medium">
+                      {cat.nombre}
+                      {enUso && <span className="badge badge-warning ms-sm">En uso</span>}
+                    </td>
+                    <td className="text-muted">{cat.descripcion || '-'}</td>
                     <td>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleEdit(categoria)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(categoria.id)}
-                      >
-                        🗑️
-                      </button>
+                      <div className="actions-bar">
+                        <button 
+                          className="btn btn-ghost btn-sm" 
+                          onClick={() => handleEdit(cat)}
+                          disabled={enUso}
+                        >
+                          {enUso ? 'Bloqueado' : 'Editar'}
+                        </button>
+                        <button 
+                          className="btn btn-ghost btn-sm text-error" 
+                          onClick={() => handleDeleteClick(cat)}
+                          disabled={enUso}
+                        >
+                          {enUso ? 'Bloqueado' : 'Eliminar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* Paginación */}
-          <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarCategorias(Math.max(0, pagination.offset - pagination.limit))}
-              disabled={pagination.offset === 0}
-            >
-              ← Anterior
-            </button>
-            <span style={{ alignSelf: 'center', color: '#666' }}>
-              Página {Math.floor(pagination.offset / pagination.limit) + 1}
-            </span>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarCategorias(pagination.offset + pagination.limit)}
-              disabled={categorias.length < pagination.limit}
-            >
-              Siguiente →
-            </button>
-          </div>
-        </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {/* Modal Create/Edit */}
+      <Modal
+        isOpen={showModal}
+        onClose={resetForm}
+        title={editingId ? 'Editar Categoria' : 'Nueva Categoria'}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={resetForm}>Cancelar</button>
+            <button className="btn btn-success" onClick={handleSubmit}>
+              {editingId ? 'Actualizar' : 'Crear'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Nombre *</label>
+            <input
+              type="text"
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              maxLength={50}
+              autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <label>Descripcion</label>
+            <textarea
+              value={formData.descripcion}
+              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              maxLength={200}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setCategoriaToDelete(null); }}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Categoria"
+        message={`Estas seguro de eliminar "${categoriaToDelete?.nombre}"? Esta accion no se puede deshacer.`}
+        confirmText="Eliminar"
+        type="danger"
+      />
     </div>
   );
 };

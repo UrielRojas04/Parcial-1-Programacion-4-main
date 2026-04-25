@@ -1,0 +1,62 @@
+/* Modal specific styles - additional to design-system.css */
+
+.modal-body {
+  max-height: calc(90vh - 180px);
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for modal body */
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* Confirmation Modal */
+.modal-confirm {
+  text-align: center;
+  padding: var(--space-md) 0;
+}
+
+.modal-confirm-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-md);
+  font-size: 28px;
+}
+
+.modal-confirm-icon.warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.modal-confirm-icon.danger {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.modal-confirm-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.modal-confirm-message {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}

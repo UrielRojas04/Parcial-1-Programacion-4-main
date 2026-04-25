@@ -1,5 +1,5 @@
 from typing import Optional, List
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from models.categoria import Categoria
 from .repository import BaseRepository
 
@@ -11,6 +11,8 @@ class CategoriaRepository(BaseRepository[Categoria]):
         super().__init__(session, Categoria)
     
     def find_by_nombre(self, nombre: str) -> List[Categoria]:
-        """Busca categorías por nombre (contiene)"""
-        statement = select(Categoria).where(Categoria.nombre.contains(nombre))
+        """Busca categorías por nombre (contiene, case-insensitive)"""
+        statement = select(Categoria).where(
+            func.lower(Categoria.nombre).contains(nombre.lower())
+        )
         return self.session.exec(statement).all()

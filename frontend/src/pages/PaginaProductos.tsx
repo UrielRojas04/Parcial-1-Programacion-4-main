@@ -1,5 +1,8 @@
 import { useState, useEffect, FC } from 'react';
 import { productoService, categoriaService, ingredienteService, Categoria, Ingrediente, Producto } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface ProductoFormData {
   nombre: string;
@@ -8,14 +11,9 @@ interface ProductoFormData {
   categoria_id: string;
 }
 
-interface IngredienteAgregarData {
+interface IngredienteFormData {
   ingrediente_id: string;
   cantidad: string;
-}
-
-interface Pagination {
-  offset: number;
-  limit: number;
 }
 
 const PaginaProductos: FC = () => {
@@ -23,14 +21,17 @@ const PaginaProductos: FC = () => {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRemoveIngModal, setShowRemoveIngModal] = useState(false);
+  const [productoToDelete, setProductoToDelete] = useState<Producto | null>(null);
+  const [ingredienteToRemove, setIngredienteToRemove] = useState<{productoId: number, ingId: number, nombre: string, cantidad: number} | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showIngredientesModal, setShowIngredientesModal] = useState(false);
+  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [searchNombre, setSearchNombre] = useState('');
   const [filterCategoriaId, setFilterCategoriaId] = useState('');
-  const [pagination, setPagination] = useState<Pagination>({ offset: 0, limit: 10 });
-
+  
   const [formData, setFormData] = useState<ProductoFormData>({
     nombre: '',
     precio: '',
@@ -38,79 +39,68 @@ const PaginaProductos: FC = () => {
     categoria_id: '',
   });
 
-  // Modal para agregar ingredientes
-  const [showIngredientesModal, setShowIngredientesModal] = useState(false);
-  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
-  const [ingredienteAgregar, setIngredienteAgregar] = useState<IngredienteAgregarData>({
+  const [ingredienteForm, setIngredienteForm] = useState<IngredienteFormData>({
     ingrediente_id: '',
     cantidad: '',
   });
 
-  // Cargar productos
-  const cargarProductos = async (offset: number = 0) => {
+  const { showToast } = useToast();
+
+  const cargarProductos = async () => {
     setLoading(true);
-    setError('');
     try {
       const response = await productoService.getAll({
         nombre: searchNombre || undefined,
         categoria_id: filterCategoriaId ? parseInt(filterCategoriaId) : undefined,
-        offset,
-        limit: pagination.limit,
+        limit: 100
       });
       setProductos(response.data);
-      setPagination(prev => ({ ...prev, offset }));
-    } catch (err: any) {
-      setError('Error al cargar productos: ' + (err.response?.data?.detail || err.message));
+    } catch {
+      showToast('error', 'Error al cargar productos');
     } finally {
       setLoading(false);
     }
   };
 
-  // Cargar categorías
   const cargarCategorias = async () => {
     try {
       const response = await categoriaService.getAll({ limit: 100 });
       setCategorias(response.data);
-    } catch (err) {
-      console.error('Error cargando categorías:', err);
+    } catch {
+      console.error('Error cargando categorias');
     }
   };
 
-  // Cargar ingredientes
-  const cargarIngredientes = async () => {
+  const cargarIngredientesAPI = async () => {
     try {
       const response = await ingredienteService.getAll({ limit: 100 });
       setIngredientes(response.data);
-    } catch (err) {
-      console.error('Error cargando ingredientes:', err);
+    } catch {
+      console.error('Error cargando ingredientes');
     }
   };
 
   useEffect(() => {
     cargarProductos();
     cargarCategorias();
-    cargarIngredientes();
+    cargarIngredientesAPI();
   }, [searchNombre, filterCategoriaId]);
 
-  // Manejar submit del formulario de producto
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!formData.nombre.trim()) {
-      setError('El nombre es requerido');
+    const nombreTrim = formData.nombre.trim();
+    if (!nombreTrim) {
+      showToast('error', 'El nombre es requerido');
       return;
     }
-
     if (!formData.precio || parseFloat(formData.precio) <= 0) {
-      setError('El precio debe ser mayor a 0');
+      showToast('error', 'El precio debe ser mayor a 0');
       return;
     }
 
     try {
       const dataToSend = {
-        nombre: formData.nombre,
+        nombre: nombreTrim,
         precio: parseFloat(formData.precio),
         descripcion: formData.descripcion || undefined,
         categoria_id: formData.categoria_id ? parseInt(formData.categoria_id) : undefined,
@@ -118,19 +108,18 @@ const PaginaProductos: FC = () => {
 
       if (editingId) {
         await productoService.update(editingId, dataToSend);
-        setSuccess('Producto actualizado correctamente');
+        showToast('success', 'Producto actualizado');
       } else {
         await productoService.create(dataToSend);
-        setSuccess('Producto creado correctamente');
+        showToast('success', 'Producto creado');
       }
       resetForm();
-      cargarProductos(0);
-    } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
+      cargarProductos();
+    } catch {
+      showToast('error', 'Error al guardar');
     }
   };
 
-  // Editar producto
   const handleEdit = (producto: Producto) => {
     setFormData({
       nombre: producto.nombre,
@@ -139,388 +128,392 @@ const PaginaProductos: FC = () => {
       categoria_id: producto.categoria_id?.toString() || '',
     });
     setEditingId(producto.id);
-    setShowForm(true);
+    setShowModal(true);
   };
 
-  // Eliminar producto
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Está seguro de que desea eliminar este producto?')) return;
+  const handleDeleteClick = (producto: Producto) => {
+    setProductoToDelete(producto);
+    setShowDeleteModal(true);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!productoToDelete) return;
     try {
-      await productoService.delete(id);
-      setSuccess('Producto eliminado correctamente');
-      cargarProductos(0);
-    } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
+      await productoService.delete(productoToDelete.id);
+      showToast('success', 'Producto eliminado');
+      cargarProductos();
+    } catch {
+      showToast('error', 'No se puede eliminar');
     }
+    setProductoToDelete(null);
   };
 
-  // Agregar ingrediente a producto
-  const handleAgregarIngrediente = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!ingredienteAgregar.ingrediente_id) {
-      setError('Seleccione un ingrediente');
-      return;
-    }
-
-    if (!ingredienteAgregar.cantidad || parseFloat(ingredienteAgregar.cantidad) <= 0) {
-      setError('La cantidad debe ser mayor a 0');
-      return;
-    }
-
-    try {
-      if (productoSeleccionado) {
-        await productoService.agregarIngrediente(
-          productoSeleccionado.id,
-          {
-            ingrediente_id: parseInt(ingredienteAgregar.ingrediente_id),
-            cantidad: parseFloat(ingredienteAgregar.cantidad),
-          }
-        );
-        setSuccess('Ingrediente agregado correctamente');
-        setIngredienteAgregar({ ingrediente_id: '', cantidad: '' });
-        cargarProductos(pagination.offset);
-        setProductoSeleccionado(null);
-      }
-    } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
-    }
-  };
-
-  // Quitar ingrediente de producto
-  const handleQuitarIngrediente = async (productoId: number, ingredienteId: number) => {
-    if (!confirm('¿Desea quitar este ingrediente del producto?')) return;
-
-    try {
-      await productoService.quitarIngrediente(productoId, ingredienteId);
-      setSuccess('Ingrediente removido correctamente');
-      cargarProductos(pagination.offset);
-    } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
-    }
-  };
-
-  // Reset del formulario
   const resetForm = () => {
     setFormData({ nombre: '', precio: '', descripcion: '', categoria_id: '' });
     setEditingId(null);
-    setShowForm(false);
+    setShowModal(false);
   };
 
-  // Obtener nombre de categoría
+  // Open ingredients modal
+  const openIngredientesModal = async (producto: Producto) => {
+    try {
+      const response = await productoService.getById(producto.id);
+      setProductoSeleccionado(response.data);
+      setShowIngredientesModal(true);
+      setIngredienteForm({ ingrediente_id: '', cantidad: '' });
+    } catch {
+      showToast('error', 'Error al cargar producto');
+    }
+  };
+
+  const handleAgregarIngrediente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ingredienteForm.ingrediente_id || !ingredienteForm.cantidad) {
+      showToast('error', 'Complete todos los campos');
+      return;
+    }
+
+    try {
+      await productoService.agregarIngrediente(
+        productoSeleccionado!.id,
+        {
+          ingrediente_id: parseInt(ingredienteForm.ingrediente_id),
+          cantidad: parseFloat(ingredienteForm.cantidad),
+        }
+      );
+      showToast('success', 'Ingrediente agregado');
+      // Recargar producto con ingredientes actualizados
+      const response = await productoService.getById(productoSeleccionado!.id);
+      setProductoSeleccionado(response.data);
+      // Also reload the productos list to show updated ingredients
+      cargarProductos();
+      setIngredienteForm({ ingrediente_id: '', cantidad: '' });
+    } catch {
+      showToast('error', 'Error al agregar ingrediente');
+    }
+  };
+
+  const handleRemoveIngClick = (ingredienteId: number, nombre: string, cantidad: number) => {
+    setIngredienteToRemove({ productoId: productoSeleccionado!.id, ingId: ingredienteId, nombre, cantidad });
+    setShowRemoveIngModal(true);
+  };
+
+  const handleConfirmRemoveIng = async () => {
+    if (!ingredienteToRemove) return;
+    try {
+      await productoService.quitarIngrediente(ingredienteToRemove.productoId, ingredienteToRemove.ingId);
+      showToast('success', 'Ingrediente removido');
+      // Recargar producto con ingredientes actualizados
+      const response = await productoService.getById(ingredienteToRemove.productoId);
+      setProductoSeleccionado(response.data);
+      // Also reload the productos list to show updated ingredients
+      cargarProductos();
+    } catch {
+      showToast('error', 'Error al remover ingrediente');
+    }
+    setIngredienteToRemove(null);
+  };
+
   const getNombreCategoria = (categoriaId?: number): string => {
-    if (!categoriaId) return 'Sin categoría';
+    if (!categoriaId) return 'Sin categoria';
     const cat = categorias.find(c => c.id === categoriaId);
     return cat ? cat.nombre : 'Desconocido';
   };
 
-  // Obtener nombre de ingrediente
   const getNombreIngrediente = (ingredienteId: number): string => {
     const ing = ingredientes.find(i => i.id === ingredienteId);
     return ing ? ing.nombre : 'Desconocido';
   };
 
-  // Obtener unidad de ingrediente
   const getUnidadIngrediente = (ingredienteId: number): string => {
     const ing = ingredientes.find(i => i.id === ingredienteId);
     return ing ? ing.unidad : '';
   };
 
-  // Obtener ingredientes disponibles (no agregados al producto)
   const getIngredientesDisponibles = (): Ingrediente[] => {
     if (!productoSeleccionado) return ingredientes;
-    const ingredientesProducto = productoSeleccionado.ingrediente_links?.map(p => p.ingrediente_id) || [];
-    return ingredientes.filter(ing => !ingredientesProducto.includes(ing.id));
+    const ids = productoSeleccionado.ingrediente_links?.map(p => p.ingrediente_id) || [];
+    return ingredientes.filter(ing => !ids.includes(ing.id));
   };
+
+  const formatPrecio = (precio: number): string => {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio);
+  };
+
+  // Filter by case-insensitive search + category + ingredient name
+  const filteredProductos = productos.filter(p => {
+    const search = searchNombre.toLowerCase();
+    if (!search) return true;
+    
+    // Search in product name
+    if (p.nombre.toLowerCase().includes(search)) return true;
+    
+    // Search in category name
+    if (p.categoria_id) {
+      const cat = categorias.find(c => c.id === p.categoria_id);
+      if (cat && cat.nombre.toLowerCase().includes(search)) return true;
+    }
+    
+    // Search in ingredient names
+    if (p.ingrediente_links && p.ingrediente_links.length > 0) {
+      for (const pi of p.ingrediente_links) {
+        const ingNombre = getNombreIngrediente(pi.ingrediente_id).toLowerCase();
+        if (ingNombre.includes(search)) return true;
+      }
+    }
+    
+    return false;
+  });
 
   return (
     <div className="container">
-      <h2 className="section-title">📦 Gestión de Productos</h2>
-
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-
-      {/* Filtros */}
-      <div className="form-row">
-        <div className="form-group">
+      {/* Header */}
+      <div className="header-actions">
+        <h2 className="header-title">Productos</h2>
+        
+        <div className="header-toolbar">
           <input
             type="text"
-            placeholder="Buscar producto por nombre..."
+            className="search-input"
+            placeholder="Buscar por nombre, categoria o ingrediente..."
             value={searchNombre}
             onChange={(e) => setSearchNombre(e.target.value)}
           />
-        </div>
-        <div className="form-group">
           <select
+            className="search-select"
             value={filterCategoriaId}
             onChange={(e) => setFilterCategoriaId(e.target.value)}
           >
-            <option value="">Todas las categorías</option>
+            <option value="">Todas las categorias</option>
             {categorias.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.nombre}</option>
             ))}
           </select>
+          <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            + Nuevo
+          </button>
         </div>
       </div>
 
-      {/* Botón agregar */}
-      <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-        ➕ Nuevo Producto
-      </button>
-
-      {/* Formulario modal - Crear/Editar Producto */}
-      {showForm && (
-        <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {editingId ? '✏️ Editar Producto' : '➕ Nuevo Producto'}
-              </h3>
-              <button className="modal-close" onClick={resetForm}>✕</button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Nombre *</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  maxLength={100}
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Precio *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.precio}
-                    onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Categoría</label>
-                  <select
-                    value={formData.categoria_id}
-                    onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-                  >
-                    <option value="">Sin categoría</option>
-                    {categorias.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Descripción</label>
-                <textarea
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  maxLength={300}
-                />
-              </div>
-
-              <div className="btn-group">
-                <button type="submit" className="btn btn-success">
-                  {editingId ? '💾 Actualizar' : '➕ Crear'}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={resetForm}>
-                  ✕ Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para agregar ingredientes */}
-      {showIngredientesModal && productoSeleccionado && (
-        <div className="modal-overlay" onClick={() => { setShowIngredientesModal(false); setProductoSeleccionado(null); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">➕ Agregar Ingrediente a "{productoSeleccionado.nombre}"</h3>
-              <button className="modal-close" onClick={() => { setShowIngredientesModal(false); setProductoSeleccionado(null); }}>✕</button>
-            </div>
-
-            {/* Ingredientes actuales */}
-            {productoSeleccionado.ingrediente_links && productoSeleccionado.ingrediente_links.length > 0 && (
-              <div className="ingredientes-list">
-                <h4>📋 Ingredientes actuales:</h4>
-                {productoSeleccionado.ingrediente_links.map((pi) => (
-                  <div key={pi.ingrediente_id} className="ingrediente-item">
-                    <div className="ingrediente-info">
-                      {getNombreIngrediente(pi.ingrediente_id)}
-                    </div>
-                    <div className="ingrediente-cantidad">
-                      {pi.cantidad} {getUnidadIngrediente(pi.ingrediente_id)}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleQuitarIngrediente(productoSeleccionado.id, pi.ingrediente_id)}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Formulario agregar ingrediente */}
-            <form onSubmit={handleAgregarIngrediente}>
-              <div className="form-group">
-                <label>Ingrediente *</label>
-                <select
-                  value={ingredienteAgregar.ingrediente_id}
-                  onChange={(e) => setIngredienteAgregar({ ...ingredienteAgregar, ingrediente_id: e.target.value })}
-                >
-                  <option value="">Seleccionar ingrediente...</option>
-                  {getIngredientesDisponibles().map(ing => (
-                    <option key={ing.id} value={ing.id}>{ing.nombre} ({ing.unidad})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Cantidad *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={ingredienteAgregar.cantidad}
-                  onChange={(e) => setIngredienteAgregar({ ...ingredienteAgregar, cantidad: e.target.value })}
-                  placeholder="Ej: 100"
-                />
-              </div>
-
-              <div className="btn-group">
-                <button type="submit" className="btn btn-success">
-                  ➕ Agregar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => { setShowIngredientesModal(false); setProductoSeleccionado(null); }}
-                >
-                  ✕ Cerrar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Tabla de productos */}
+      {/* Loading */}
       {loading ? (
-        <div className="loading">
+        <div className="loading-container">
           <div className="spinner"></div>
-          <p>Cargando...</p>
+        </div>
+      ) : filteredProductos.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-title">
+            {searchNombre || filterCategoriaId ? 'No se encontraron productos' : 'No hay productos'}
+          </div>
+          <div className="empty-state-text">
+            {searchNombre || filterCategoriaId ? 'Intenta con otros terminos' : 'Crea tu primer producto'}
+          </div>
         </div>
       ) : (
-        <>
-          {productos.length === 0 ? (
-            <div className="alert alert-info">No hay productos para mostrar</div>
-          ) : (
-            <div style={{ overflowX: 'auto', marginTop: '20px' }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Precio</th>
-                    <th>Categoría</th>
-                    <th>Ingredientes</th>
-                    <th>Descripción</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productos.map((producto) => (
-                    <tr key={producto.id}>
-                      <td>#{producto.id}</td>
-                      <td>{producto.nombre}</td>
-                      <td>${producto.precio.toFixed(2)}</td>
-                      <td>{getNombreCategoria(producto.categoria_id)}</td>
-                      <td>
-                        {producto.ingrediente_links && producto.ingrediente_links.length > 0 ? (
-                            <div style={{ fontSize: '12px' }}>
-                            {producto.ingrediente_links.map((pi) => (
-                                <div key={pi.ingrediente_id}>
-                                🥗 {getNombreIngrediente(pi.ingrediente_id)} — {pi.cantidad} {getUnidadIngrediente(pi.ingrediente_id)}
-                                </div>
-                            ))}
-                            </div>
-                        ) : (
-                            <span style={{ color: '#999' }}>Sin ingredientes</span>
-                        )}
-                        </td>
-                      <td>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handleEdit(producto)}
-                          title="Editar"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                            className="btn btn-success btn-sm"
-                            onClick={async () => {
-                                const response = await productoService.getById(producto.id);
-                                setProductoSeleccionado(response.data);
-                                setShowIngredientesModal(true);
-                                setIngredienteAgregar({ ingrediente_id: '', cantidad: '' });
-                                setError('');
-                                setSuccess('');
-                            }}
-                            title="Ingredientes"
-                            >
-                            🥘
-                            </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(producto.id)}
-                          title="Eliminar"
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Paginación */}
-          <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarProductos(Math.max(0, pagination.offset - pagination.limit))}
-              disabled={pagination.offset === 0}
-            >
-              ← Anterior
-            </button>
-            <span style={{ alignSelf: 'center', color: '#666' }}>
-              Página {Math.floor(pagination.offset / pagination.limit) + 1}
-            </span>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarProductos(pagination.offset + pagination.limit)}
-              disabled={productos.length < pagination.limit}
-            >
-              Siguiente →
-            </button>
-          </div>
-        </>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Precio</th>
+                <th>Categoria</th>
+                <th>Ingredientes</th>
+                <th style={{ width: '140px' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProductos.map((prod) => (
+                <tr key={prod.id}>
+                  <td className="font-medium">{prod.nombre}</td>
+                  <td>{formatPrecio(prod.precio)}</td>
+                  <td>
+                    <span className="badge badge-secondary">{getNombreCategoria(prod.categoria_id)}</span>
+                  </td>
+                  <td>
+                    {prod.ingrediente_links && prod.ingrediente_links.length > 0 ? (
+                      <div className="ingredientes-mini">
+                        {prod.ingrediente_links.map((pi) => (
+                          <div key={pi.ingrediente_id} className="ingrediente-chip">
+                            <span>{getNombreIngrediente(pi.ingrediente_id)}</span>
+                            <span className="cantidad">({pi.cantidad})</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">Sin ingredientes</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="actions-bar">
+                      <button className="btn btn-ghost btn-sm" onClick={() => openIngredientesModal(prod)}>
+                        Ing
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(prod)}>
+                        Editar
+                      </button>
+                      <button className="btn btn-ghost btn-sm text-error" onClick={() => handleDeleteClick(prod)}>
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {/* Modal Producto */}
+      <Modal
+        isOpen={showModal}
+        onClose={resetForm}
+        title={editingId ? 'Editar Producto' : 'Nuevo Producto'}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={resetForm}>Cancelar</button>
+            <button className="btn btn-success" onClick={handleSubmit}>
+              {editingId ? 'Actualizar' : 'Crear'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Nombre *</label>
+            <input
+              type="text"
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              maxLength={100}
+              autoFocus
+            />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Precio *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.precio}
+                onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="form-group">
+              <label>Categoria</label>
+              <select
+                value={formData.categoria_id}
+                onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
+              >
+                <option value="">Sin categoria</option>
+                {categorias.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Descripcion</label>
+            <textarea
+              value={formData.descripcion}
+              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              maxLength={300}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal ingredientes */}
+      <Modal
+        isOpen={showIngredientesModal}
+        onClose={() => { setShowIngredientesModal(false); setProductoSeleccionado(null); }}
+        title={`Ingredientes: ${productoSeleccionado?.nombre}`}
+        footer={
+          <button className="btn btn-secondary" onClick={() => { setShowIngredientesModal(false); setProductoSeleccionado(null); }}>
+            Cerrar
+          </button>
+        }
+      >
+        {/* Lista de ingredientes actuales */}
+        {productoSeleccionado?.ingrediente_links && productoSeleccionado.ingrediente_links.length > 0 && (
+          <div className="ingredientes-list">
+            <h4 className="mb-sm">Ingredientes actuales:</h4>
+            {productoSeleccionado.ingrediente_links.map((pi) => (
+              <div key={pi.ingrediente_id} className="ingrediente-item">
+                <div className="ingrediente-info">
+                  <strong>{getNombreIngrediente(pi.ingrediente_id)}</strong>
+                  <span className="text-muted"> - {pi.cantidad} {getUnidadIngrediente(pi.ingrediente_id)}</span>
+                </div>
+                <button
+                  className="btn btn-ghost btn-sm text-error"
+                  onClick={() => handleRemoveIngClick(pi.ingrediente_id, getNombreIngrediente(pi.ingrediente_id), pi.cantidad)}
+                >
+                  Eliminar
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Formulario agregar */}
+        {getIngredientesDisponibles().length > 0 ? (
+          <form onSubmit={handleAgregarIngrediente} className="mt-md">
+            <div className="form-group">
+              <label>Agregar ingrediente</label>
+              <select
+                value={ingredienteForm.ingrediente_id}
+                onChange={(e) => setIngredienteForm({ ...ingredienteForm, ingrediente_id: e.target.value })}
+              >
+                <option value="">Seleccionar...</option>
+                {getIngredientesDisponibles().map(ing => (
+                  <option key={ing.id} value={ing.id}>{ing.nombre} ({ing.unidad})</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Cantidad</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={ingredienteForm.cantidad}
+                onChange={(e) => setIngredienteForm({ ...ingredienteForm, cantidad: e.target.value })}
+                placeholder="Cantidad"
+              />
+            </div>
+            <button type="submit" className="btn btn-success w-full">
+              Agregar
+            </button>
+          </form>
+        ) : (
+          <div className="empty-state mt-md">
+            <div className="empty-state-text">Todos los ingredientes ya fueron agregados</div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirm Delete Producto */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setProductoToDelete(null); }}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Producto"
+        message={`Estas seguro de eliminar "${productoToDelete?.nombre}"? Esta accion no se puede deshacer.`}
+        confirmText="Eliminar"
+        type="danger"
+      />
+
+      {/* Confirm Remove Ingredient */}
+      <ConfirmModal
+        isOpen={showRemoveIngModal}
+        onClose={() => { setShowRemoveIngModal(false); setIngredienteToRemove(null); }}
+        onConfirm={handleConfirmRemoveIng}
+        title="Quitar Ingrediente"
+        message={`Quitar "${ingredienteToRemove?.nombre}" (${ingredienteToRemove?.cantidad}) de este producto?`}
+        confirmText="Quitar"
+        type="warning"
+      />
     </div>
   );
 };

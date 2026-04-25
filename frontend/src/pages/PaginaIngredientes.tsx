@@ -1,45 +1,46 @@
 import { useState, useEffect, FC } from 'react';
 import { ingredienteService, Ingrediente } from '../services/api';
-
-interface FormData {
-  nombre: string;
-  unidad: string;
-}
-
-interface Pagination {
-  offset: number;
-  limit: number;
-}
+import { useToast } from '../context/ToastContext';
+import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const PaginaIngredientes: FC = () => {
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [ingredienteToDelete, setIngredienteToDelete] = useState<Ingrediente | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [searchNombre, setSearchNombre] = useState('');
-  const [pagination, setPagination] = useState<Pagination>({ offset: 0, limit: 10 });
+  const [formData, setFormData] = useState({ nombre: '', unidad: '' });
+  const [ingredientesEnUso, setIngredientesEnUso] = useState<Set<number>>(new Set());
+  
+  const { showToast } = useToast();
 
-  const [formData, setFormData] = useState<FormData>({
-    nombre: '',
-    unidad: '',
-  });
-
-  // Cargar ingredientes
-  const cargarIngredientes = async (offset: number = 0) => {
+  const cargarIngredientes = async () => {
     setLoading(true);
-    setError('');
     try {
-      const response = await ingredienteService.getAll({
+      const response = await ingredienteService.getAll({ 
         nombre: searchNombre || undefined,
-        offset,
-        limit: pagination.limit,
+        limit: 100
       });
       setIngredientes(response.data);
-      setPagination(prev => ({ ...prev, offset }));
-    } catch (err: any) {
-      setError('Error al cargar ingredientes: ' + (err.response?.data?.detail || err.message));
+      
+      // Check which ingredients are in use
+      const enUso = new Set<number>();
+      for (const ing of response.data) {
+        try {
+          const res = await ingredienteService.verificarEnUso(ing.id);
+          if (res.data.en_uso) {
+            enUso.add(ing.id);
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+      setIngredientesEnUso(enUso);
+    } catch {
+      showToast('error', 'Error al cargar ingredientes');
     } finally {
       setLoading(false);
     }
@@ -49,203 +50,222 @@ const PaginaIngredientes: FC = () => {
     cargarIngredientes();
   }, [searchNombre]);
 
-  // Manejar submit del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!formData.nombre.trim()) {
-      setError('El nombre es requerido');
+    const nombreTrim = formData.nombre.trim();
+    const unidadTrim = formData.unidad.trim();
+    
+    if (!nombreTrim) {
+      showToast('error', 'El nombre es requerido');
       return;
     }
-
-    if (!formData.unidad.trim()) {
-      setError('La unidad es requerida');
+    if (!unidadTrim) {
+      showToast('error', 'La unidad es requerida');
       return;
     }
 
     try {
       if (editingId) {
-        await ingredienteService.update(editingId, formData);
-        setSuccess('Ingrediente actualizado correctamente');
+        // Check if trying to edit an ingredient in use
+        if (ingredientesEnUso.has(editingId)) {
+          showToast('error', 'No se puede editar - esta en uso');
+          return;
+        }
+        await ingredienteService.update(editingId, { 
+          nombre: nombreTrim, 
+          unidad: unidadTrim 
+        });
+        showToast('success', 'Ingrediente actualizado');
       } else {
-        await ingredienteService.create(formData);
-        setSuccess('Ingrediente creado correctamente');
+        await ingredienteService.create({ 
+          nombre: nombreTrim, 
+          unidad: unidadTrim 
+        });
+        showToast('success', 'Ingrediente creado');
       }
       resetForm();
-      cargarIngredientes(0);
+      cargarIngredientes();
     } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
+      showToast('error', err.response?.data?.detail || 'Error al guardar');
     }
   };
 
-  // Editar ingrediente
   const handleEdit = (ingrediente: Ingrediente) => {
-    setFormData({
-      nombre: ingrediente.nombre,
-      unidad: ingrediente.unidad || '',
-    });
-    setEditingId(ingrediente.id);
-    setShowForm(true);
-  };
-
-  // Eliminar ingrediente
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Está seguro de que desea eliminar este ingrediente?')) return;
-
-    try {
-      await ingredienteService.delete(id);
-      setSuccess('Ingrediente eliminado correctamente');
-      cargarIngredientes(0);
-    } catch (err: any) {
-      setError('Error: ' + (err.response?.data?.detail || err.message));
+    // Check if in use
+    if (ingredientesEnUso.has(ingrediente.id)) {
+      showToast('error', 'No se puede editar - esta en uso');
+      return;
     }
+    setFormData({ nombre: ingrediente.nombre, unidad: ingrediente.unidad || '' });
+    setEditingId(ingrediente.id);
+    setShowModal(true);
   };
 
-  // Reset del formulario
+  const handleDeleteClick = (ingrediente: Ingrediente) => {
+    if (ingredientesEnUso.has(ingrediente.id)) {
+      showToast('error', 'No se puede eliminar - esta en uso');
+      return;
+    }
+    setIngredienteToDelete(ingrediente);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!ingredienteToDelete) return;
+    try {
+      await ingredienteService.delete(ingredienteToDelete.id);
+      showToast('success', 'Ingrediente eliminado');
+      cargarIngredientes();
+    } catch {
+      showToast('error', 'No se puede eliminar');
+    }
+    setIngredienteToDelete(null);
+  };
+
   const resetForm = () => {
     setFormData({ nombre: '', unidad: '' });
     setEditingId(null);
-    setShowForm(false);
+    setShowModal(false);
   };
+
+  // Filter by case-insensitive search
+  const filteredIngredientes = searchNombre
+    ? ingredientes.filter(i => 
+        i.nombre.toLowerCase().includes(searchNombre.toLowerCase()) ||
+        i.unidad.toLowerCase().includes(searchNombre.toLowerCase())
+      )
+    : ingredientes;
 
   return (
     <div className="container">
-      <h2 className="section-title">🥘 Gestión de Ingredientes</h2>
-
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-
-      {/* Barra de búsqueda */}
-      <div className="form-group">
-        <input
-          type="text"
-          placeholder="Buscar ingrediente por nombre..."
-          value={searchNombre}
-          onChange={(e) => setSearchNombre(e.target.value)}
-        />
+      {/* Header */}
+      <div className="header-actions">
+        <h2 className="header-title">Ingredientes</h2>
+        
+        <div className="header-toolbar">
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Buscar por nombre o unidad..."
+            value={searchNombre}
+            onChange={(e) => setSearchNombre(e.target.value)}
+          />
+          <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            + Nuevo
+          </button>
+        </div>
       </div>
 
-      {/* Botón agregar */}
-      <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-        ➕ Nuevo Ingrediente
-      </button>
-
-      {/* Formulario modal */}
-      {showForm && (
-        <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {editingId ? '✏️ Editar Ingrediente' : '➕ Nuevo Ingrediente'}
-              </h3>
-              <button className="modal-close" onClick={resetForm}>✕</button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Nombre *</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  maxLength={50}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Unidad (kg, l, porciones, etc.) *</label>
-                <input
-                  type="text"
-                  value={formData.unidad}
-                  onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
-                  maxLength={20}
-                  placeholder="Ej: kg, gramos, litros, etc."
-                />
-              </div>
-
-              <div className="btn-group">
-                <button type="submit" className="btn btn-success">
-                  {editingId ? '💾 Actualizar' : '➕ Crear'}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={resetForm}>
-                  ✕ Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Tabla de ingredientes */}
+      {/* Loading */}
       {loading ? (
-        <div className="loading">
+        <div className="loading-container">
           <div className="spinner"></div>
-          <p>Cargando...</p>
+        </div>
+      ) : filteredIngredientes.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-title">
+            {searchNombre ? 'No se encontraron ingredientes' : 'No hay ingredientes'}
+          </div>
+          <div className="empty-state-text">
+            {searchNombre ? 'Intenta con otros terminos' : 'Crea tu primer ingrediente'}
+          </div>
         </div>
       ) : (
-        <>
-          {ingredientes.length === 0 ? (
-            <div className="alert alert-info">No hay ingredientes para mostrar</div>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>Unidad</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ingredientes.map((ingrediente) => (
-                  <tr key={ingrediente.id}>
-                    <td>#{ingrediente.id}</td>
-                    <td>{ingrediente.nombre}</td>
-                    <td>{ingrediente.unidad}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Unidad</th>
+                <th style={{ width: '160px' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredIngredientes.map((ing) => {
+                const enUso = ingredientesEnUso.has(ing.id);
+                return (
+                  <tr key={ing.id} className={enUso ? 'row-disabled' : ''}>
+                    <td className="font-medium">
+                      {ing.nombre}
+                      {enUso && <span className="badge badge-warning ms-sm">En uso</span>}
+                    </td>
                     <td>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleEdit(ingrediente)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(ingrediente.id)}
-                      >
-                        🗑️
-                      </button>
+                      <span className="badge badge-secondary">{ing.unidad}</span>
+                    </td>
+                    <td>
+                      <div className="actions-bar">
+                        <button 
+                          className="btn btn-ghost btn-sm" 
+                          onClick={() => handleEdit(ing)}
+                          disabled={enUso}
+                        >
+                          {enUso ? 'Bloqueado' : 'Editar'}
+                        </button>
+                        <button 
+                          className="btn btn-ghost btn-sm text-error" 
+                          onClick={() => handleDeleteClick(ing)}
+                          disabled={enUso}
+                        >
+                          {enUso ? 'Bloqueado' : 'Eliminar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* Paginación */}
-          <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarIngredientes(Math.max(0, pagination.offset - pagination.limit))}
-              disabled={pagination.offset === 0}
-            >
-              ← Anterior
-            </button>
-            <span style={{ alignSelf: 'center', color: '#666' }}>
-              Página {Math.floor(pagination.offset / pagination.limit) + 1}
-            </span>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarIngredientes(pagination.offset + pagination.limit)}
-              disabled={ingredientes.length < pagination.limit}
-            >
-              Siguiente →
-            </button>
-          </div>
-        </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {/* Modal Create/Edit */}
+      <Modal
+        isOpen={showModal}
+        onClose={resetForm}
+        title={editingId ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={resetForm}>Cancelar</button>
+            <button className="btn btn-success" onClick={handleSubmit}>
+              {editingId ? 'Actualizar' : 'Crear'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Nombre *</label>
+            <input
+              type="text"
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              maxLength={50}
+              autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <label>Unidad *</label>
+            <input
+              type="text"
+              value={formData.unidad}
+              onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
+              maxLength={20}
+              placeholder="kg, gramos, litros, unidades..."
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setIngredienteToDelete(null); }}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Ingrediente"
+        message={`Estas seguro de eliminar "${ingredienteToDelete?.nombre}"? Esta accion no se puede deshacer.`}
+        confirmText="Eliminar"
+        type="danger"
+      />
     </div>
   );
 };

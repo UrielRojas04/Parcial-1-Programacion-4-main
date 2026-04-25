@@ -102,4 +102,4 @@ class Producto(SQLModel, table=True):
     # OUTPUT:
     # Harina: 500 gramos
     # Huevo: 12 unidades
-    ingrediente_links: List["ProductoIngrediente"] = Relationship(back_populates="producto")
+    ingrediente_links: List["ProductoIngrediente"] = Relationship(back_populates="producto", cascade_delete=True)
