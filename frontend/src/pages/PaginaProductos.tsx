@@ -154,6 +154,15 @@ const PaginaProductos: FC = () => {
     setShowModal(false);
   };
 
+  const handleNuevoProducto = () => {
+    if (categorias.length === 0) {
+      showToast('warning', 'Debes crear al menos una categoría antes');
+      return;
+    }
+    resetForm();
+    setShowModal(true);
+  };
+
   // Open ingredients modal
   const openIngredientesModal = async (producto: Producto) => {
     try {
@@ -285,7 +294,7 @@ const PaginaProductos: FC = () => {
               <option key={cat.id} value={cat.id}>{cat.nombre}</option>
             ))}
           </select>
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+          <button className="btn btn-primary" onClick={handleNuevoProducto}>
             + Nuevo
           </button>
         </div>
