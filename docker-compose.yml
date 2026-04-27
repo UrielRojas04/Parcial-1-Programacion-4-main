@@ -1,11 +1,31 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: parcial4-postgres
+    environment:
+      POSTGRES_DB: parcial4
+      POSTGRES_USER: parcial4_user
+      POSTGRES_PASSWORD: parcial4_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parcial4_user -d parcial4"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: parcial4-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      DATABASE_URL: sqlite:///./app.db
+      DATABASE_URL: postgresql+psycopg2://parcial4_user:parcial4_pass@postgres:5432/parcial4
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     ports:
@@ -27,3 +47,6 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- --host 0.0.0.0 --port 5173
+
+volumes:
+  postgres_data:
