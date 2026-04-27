@@ -1,6 +1,26 @@
+# PYTHON
 __pycache__/
 *.pyc
 *.pyo
 .venv/
+
+# ENTORNO
 .env
+
+# BASE DE DATOS
 *.db
+
+# COSAS DE IA
+.opencode
+
+# NODEJS
+node_modules/
+.npm
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+dist/
+build/
+.next/
+out/
