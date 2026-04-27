@@ -156,9 +156,17 @@ from sqlmodel import SQLModel, Field, Relationship
 
 class Categoria(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    parent_id: Optional[int] = Field(default=None, foreign_key="categoria.id")
     nombre: str = Field(min_length=2, max_length=50)
     descripcion: Optional[str] = Field(default=None, max_length=200)
-    
+
+    # Relacion jerarquica (autorreferencia)
+    parent: Optional["Categoria"] = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={"remote_side": "Categoria.id"}
+    )
+    children: List["Categoria"] = Relationship(back_populates="parent")
+
     # Relación 1:N
     productos: List["Producto"] = Relationship(back_populates="categoria")
 ```
@@ -172,11 +180,14 @@ class Categoria(SQLModel, table=True):
 | Campo | Tipo | Validación |
 |-------|------|-----------|
 | `id` | int | PK (auto) |
+| `parent_id` | int | FK → categoria.id, opcional |
 | `nombre` | str | 2-50 caracteres |
 | `descripcion` | str | Máx 200 caracteres, opcional |
 
 **Relaciones:**
 - `productos` → Lista de productos de esta categoría
+- `parent` → Categoria padre (jerarquia, opcional)
+- `children` → Subcategorias (0..n)
 
 ---
 
@@ -277,6 +288,7 @@ from sqlmodel import SQLModel, Field
 class CategoriaCreate(SQLModel):
     nombre: str = Field(min_length=2, max_length=50)
     descripcion: Optional[str] = Field(default=None, max_length=200)
+    parent_id: Optional[int] = Field(default=None)
 
 class IngredienteCreate(SQLModel):
     nombre: str = Field(min_length=2, max_length=50)

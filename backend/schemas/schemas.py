@@ -5,6 +5,7 @@ from sqlmodel import SQLModel, Field
 class CategoriaCreate(SQLModel):
     nombre: str = Field(min_length=2, max_length=50)
     descripcion: Optional[str] = Field(default=None, max_length=200)
+    parent_id: Optional[int] = Field(default=None)
 
 
 class IngredienteCreate(SQLModel):
