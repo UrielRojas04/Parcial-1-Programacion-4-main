@@ -32,7 +32,7 @@ class CategoriaService:
             categoria = self.get_by_id(categoria_id)
             categoria.nombre = datos.nombre
             categoria.descripcion = datos.descripcion
-        categoria.parent_id = datos.parent_id
+            categoria.parent_id = datos.parent_id
             categoria = self.uow.categorias.update(categoria)
             self.uow.session.refresh(categoria)
             return categoria
