@@ -22,24 +22,24 @@ class IngredienteService:
         return ingrediente
     
     def create(self, ingrediente: Ingrediente) -> Ingrediente:
-        ingrediente = self.uow.ingredientes.create(ingrediente)
-        self.uow.commit()
-        self.uow.session.refresh(ingrediente)
-        return ingrediente
+        with self.uow:
+            new_ing = self.uow.ingredientes.create(ingrediente)
+            self.uow.session.refresh(new_ing)
+            return new_ing
     
     def update(self, ingrediente_id: int, datos: Ingrediente) -> Ingrediente:
-        ingrediente = self.get_by_id(ingrediente_id)
-        ingrediente.nombre = datos.nombre
-        ingrediente.unidad = datos.unidad
-        ingrediente = self.uow.ingredientes.update(ingrediente)
-        self.uow.commit()
-        self.uow.session.refresh(ingrediente)
-        return ingrediente
+        with self.uow:
+            ingrediente = self.get_by_id(ingrediente_id)
+            ingrediente.nombre = datos.nombre
+            ingrediente.unidad = datos.unidad
+            ingrediente = self.uow.ingredientes.update(ingrediente)
+            self.uow.session.refresh(ingrediente)
+            return ingrediente
     
     def delete(self, ingrediente_id: int) -> None:
-        self.get_by_id(ingrediente_id)
-        self.uow.ingredientes.delete(ingrediente_id)
-        self.uow.commit()
+        with self.uow:
+            self.get_by_id(ingrediente_id)
+            self.uow.ingredientes.delete(ingrediente_id)
 
     def esta_en_uso(self, ingrediente_id: int) -> dict:
         self.get_by_id(ingrediente_id)
