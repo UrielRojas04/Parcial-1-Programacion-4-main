@@ -16,6 +16,15 @@ interface IngredienteFormData {
   cantidad: string;
 }
 
+/**
+ * Página de administración de productos.
+ *
+ * Permite listar, buscar y filtrar productos, así como crear, editar y eliminar registros.
+ * También gestiona la asignación y eliminación de ingredientes asociados a cada producto
+ * mediante modales de edición y confirmación.
+ *
+ * @component
+ */
 const PaginaProductos: FC = () => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -409,8 +418,8 @@ const PaginaProductos: FC = () => {
                 value={formData.categoria_id}
                 onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
               >
-                <option value="">Sin categoria</option>
-                {categorias.map(cat => (
+                {/* <option value="">Sin categoria</option> */}
+                {categorias.length > 0 && categorias.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.nombre}</option>
                 ))}
               </select>
