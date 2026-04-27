@@ -9,7 +9,6 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// ============ TIPOS ============
 export interface Categoria {
   id: number;
   nombre: string;
@@ -41,7 +40,6 @@ export interface EnUsoResponse {
   cantidad: number;
 }
 
-// ============ CATEGORÍAS ============
 export const categoriaService = {
   getAll: (params?: Record<string, unknown>) => 
     api.get<Categoria[]>('/categorias/', { params }),
@@ -57,7 +55,6 @@ export const categoriaService = {
     api.get<EnUsoResponse>(`/categorias/${id}/en-uso`),
 };
 
-// ============ INGREDIENTES ============
 export const ingredienteService = {
   getAll: (params?: Record<string, unknown>) => 
     api.get<Ingrediente[]>('/ingredientes/', { params }),
@@ -73,7 +70,6 @@ export const ingredienteService = {
     api.get<EnUsoResponse>(`/ingredientes/${id}/en-uso`),
 };
 
-// ============ PRODUCTOS ============
 export const productoService = {
   getAll: (params?: Record<string, unknown>) => 
     api.get<Producto[]>('/productos/', { params }),

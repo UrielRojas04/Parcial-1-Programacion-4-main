@@ -26,7 +26,7 @@ const PaginaIngredientes: FC = () => {
       });
       setIngredientes(response.data);
       
-      // Check which ingredients are in use
+      
       const enUso = new Set<number>();
       for (const ing of response.data) {
         try {
@@ -128,7 +128,7 @@ const PaginaIngredientes: FC = () => {
     setShowModal(false);
   };
 
-  // Filter by case-insensitive search
+  
   const filteredIngredientes = searchNombre
     ? ingredientes.filter(i => 
         i.nombre.toLowerCase().includes(searchNombre.toLowerCase()) ||
@@ -138,7 +138,6 @@ const PaginaIngredientes: FC = () => {
 
   return (
     <div className="container">
-      {/* Header */}
       <div className="header-actions">
         <h2 className="header-title">Ingredientes</h2>
         
@@ -156,7 +155,6 @@ const PaginaIngredientes: FC = () => {
         </div>
       </div>
 
-      {/* Loading */}
       {loading ? (
         <div className="loading-container">
           <div className="spinner"></div>
@@ -218,7 +216,6 @@ const PaginaIngredientes: FC = () => {
         </div>
       )}
 
-      {/* Modal Create/Edit */}
       <Modal
         isOpen={showModal}
         onClose={resetForm}
@@ -256,7 +253,6 @@ const PaginaIngredientes: FC = () => {
         </form>
       </Modal>
 
-      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setIngredienteToDelete(null); }}

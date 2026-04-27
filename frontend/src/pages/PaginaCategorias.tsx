@@ -26,7 +26,7 @@ const PaginaCategorias: FC = () => {
       });
       setCategorias(response.data);
       
-      // Check which categories are in use
+      
       const enUso = new Set<number>();
       for (const cat of response.data) {
         try {
@@ -122,7 +122,7 @@ const PaginaCategorias: FC = () => {
     setShowModal(false);
   };
 
-  // Filter categorias client-side for case-insensitive search
+  
   const filteredCategorias = searchNombre
     ? categorias.filter(c => 
         c.nombre.toLowerCase().includes(searchNombre.toLowerCase()) ||
@@ -132,7 +132,6 @@ const PaginaCategorias: FC = () => {
 
   return (
     <div className="container">
-      {/* Header */}
       <div className="header-actions">
         <h2 className="header-title">Categorias</h2>
         
@@ -150,7 +149,7 @@ const PaginaCategorias: FC = () => {
         </div>
       </div>
 
-      {/* Loading */}
+      
       {loading ? (
         <div className="loading-container">
           <div className="spinner"></div>
@@ -210,7 +209,6 @@ const PaginaCategorias: FC = () => {
         </div>
       )}
 
-      {/* Modal Create/Edit */}
       <Modal
         isOpen={showModal}
         onClose={resetForm}
@@ -246,7 +244,6 @@ const PaginaCategorias: FC = () => {
         </form>
       </Modal>
 
-      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setCategoriaToDelete(null); }}

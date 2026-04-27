@@ -1,11 +1,8 @@
-/* Modal specific styles - additional to design-system.css */
-
 .modal-body {
   max-height: calc(90vh - 180px);
   overflow-y: auto;
 }
 
-/* Custom scrollbar for modal body */
 .modal-body::-webkit-scrollbar {
   width: 6px;
 }
@@ -23,7 +20,6 @@
   background: var(--color-border-hover);
 }
 
-/* Confirmation Modal */
 .modal-confirm {
   text-align: center;
   padding: var(--space-md) 0;

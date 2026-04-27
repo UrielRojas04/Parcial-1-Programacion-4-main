@@ -1,5 +1,3 @@
-/* Toast Container Styles */
-
 .toast-container {
   position: fixed;
   top: var(--space-lg);
@@ -74,7 +72,6 @@
   opacity: 1;
 }
 
-/* Toast colors */
 .toast-success {
   background: var(--color-success);
   color: white;
@@ -117,7 +114,6 @@
   }
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .toast-container {
     top: auto;

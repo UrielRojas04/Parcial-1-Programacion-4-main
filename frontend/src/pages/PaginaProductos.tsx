@@ -182,10 +182,8 @@ const PaginaProductos: FC = () => {
         }
       );
       showToast('success', 'Ingrediente agregado');
-      // Recargar producto con ingredientes actualizados
       const response = await productoService.getById(productoSeleccionado!.id);
       setProductoSeleccionado(response.data);
-      // Also reload the productos list to show updated ingredients
       cargarProductos();
       setIngredienteForm({ ingrediente_id: '', cantidad: '' });
     } catch {
@@ -245,7 +243,6 @@ const PaginaProductos: FC = () => {
     const search = searchNombre.toLowerCase();
     if (!search) return true;
     
-    // Search in product name
     if (p.nombre.toLowerCase().includes(search)) return true;
     
     // Search in category name
@@ -267,7 +264,6 @@ const PaginaProductos: FC = () => {
 
   return (
     <div className="container">
-      {/* Header */}
       <div className="header-actions">
         <h2 className="header-title">Productos</h2>
         
@@ -295,7 +291,6 @@ const PaginaProductos: FC = () => {
         </div>
       </div>
 
-      {/* Loading */}
       {loading ? (
         <div className="loading-container">
           <div className="spinner"></div>
@@ -363,7 +358,6 @@ const PaginaProductos: FC = () => {
         </div>
       )}
 
-      {/* Modal Producto */}
       <Modal
         isOpen={showModal}
         onClose={resetForm}
@@ -424,7 +418,6 @@ const PaginaProductos: FC = () => {
         </form>
       </Modal>
 
-      {/* Modal ingredientes */}
       <Modal
         isOpen={showIngredientesModal}
         onClose={() => { setShowIngredientesModal(false); setProductoSeleccionado(null); }}
@@ -435,7 +428,6 @@ const PaginaProductos: FC = () => {
           </button>
         }
       >
-        {/* Lista de ingredientes actuales */}
         {productoSeleccionado?.ingrediente_links && productoSeleccionado.ingrediente_links.length > 0 && (
           <div className="ingredientes-list">
             <h4 className="mb-sm">Ingredientes actuales:</h4>
@@ -456,7 +448,6 @@ const PaginaProductos: FC = () => {
           </div>
         )}
 
-        {/* Formulario agregar */}
         {getIngredientesDisponibles().length > 0 ? (
           <form onSubmit={handleAgregarIngrediente} className="mt-md">
             <div className="form-group">
@@ -493,7 +484,6 @@ const PaginaProductos: FC = () => {
         )}
       </Modal>
 
-      {/* Confirm Delete Producto */}
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => { setShowDeleteModal(false); setProductoToDelete(null); }}

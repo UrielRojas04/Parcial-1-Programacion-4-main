@@ -26,7 +26,6 @@ const Navegacion: FC<NavegacionProps> = ({ paginaActual, setPaginaActual }) => {
           <span className="brand-subtitle">Productos</span>
         </div>
 
-        {/* Botón menu responsive */}
         <button 
           className={`menu-toggle ${menuAbierto ? 'active' : ''}`}
           onClick={toggleMenu}
@@ -37,7 +36,6 @@ const Navegacion: FC<NavegacionProps> = ({ paginaActual, setPaginaActual }) => {
           <span></span>
         </button>
 
-        {/* Menu de navegacion */}
         <div className={`navbar-menu ${menuAbierto ? 'open' : ''}`}>
           <button
             className={`nav-link ${paginaActual === 'productos' ? 'active' : ''}`}
