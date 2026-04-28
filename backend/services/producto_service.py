@@ -11,13 +11,15 @@ class ProductoService:
         self.uow = UnitOfWork(session)
 
     def get_all(self, nombre=None, categoria_id=None, offset=0, limit=10):
-        productos = self.uow.productos.buscar_con_filtros(
-            nombre=nombre,
-            categoria_id=categoria_id,
-            offset=offset,
-            limit=limit,
-        )
-
+        if nombre and categoria_id:
+            productos = self.uow.productos.find_by_nombre_y_categoria(nombre, categoria_id, offset, limit)
+        elif nombre:
+            productos = self.uow.productos.find_by_nombre(nombre)[offset:offset + limit]
+        elif categoria_id:
+            productos = self.uow.productos.find_by_categoria(categoria_id, offset, limit)
+        else:
+            productos = self.uow.productos.get_all(offset, limit)
+            
         for producto in productos:
             self.uow.session.refresh(producto)
             _ = producto.ingrediente_links
@@ -25,7 +27,7 @@ class ProductoService:
         return productos
 
     def get_by_id(self, producto_id: int) -> Producto:
-        producto = self.uow.session.get(Producto, producto_id)
+        producto = self.uow.productos.get_by_id(producto_id)
         if not producto:
             raise HTTPException(status_code=404, detail="Producto no encontrado")
 

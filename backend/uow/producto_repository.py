@@ -12,19 +12,20 @@ class ProductoRepository(BaseRepository[Producto]):
 
     def find_by_nombre(self, nombre: str) -> List[Producto]:
         """Busca productos por nombre (contiene)"""
-        statement = select(Producto).where(Producto.nombre.contains(nombre))
+        statement = select(Producto).where(
+            Producto.nombre.contains(nombre),
+            Producto.activo == True
+        )
         return self.session.exec(statement).all()
 
     def find_by_categoria(
         self, categoria_id: int, offset: int = 0, limit: int = 10
     ) -> List[Producto]:
         """Busca productos por categoría"""
-        statement = (
-            select(Producto)
-            .where(Producto.categoria_id == categoria_id)
-            .offset(offset)
-            .limit(limit)
-        )
+        statement = select(Producto).where(
+            Producto.categoria_id == categoria_id,
+            Producto.activo == True
+        ).offset(offset).limit(limit)
         return self.session.exec(statement).all()
 
     def find_by_nombre_y_categoria(
@@ -55,7 +56,8 @@ class ProductoRepository(BaseRepository[Producto]):
                 func.lower(Producto.nombre).contains(nombre.lower())
             )
         if categoria_id:
-            statement = statement.where(Producto.categoria_id == categoria_id)
+            statement = statement.where(Producto.categoria_id == categoria_id,
+            Producto.activo == True)
         statement = statement.offset(offset).limit(limit)
         return self.session.exec(statement).all()
 

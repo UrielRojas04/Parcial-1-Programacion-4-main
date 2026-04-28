@@ -13,4 +13,5 @@ class Producto(SQLModel, table=True):
     descripcion: Optional[str] = Field(default=None, max_length=300)
     categoria_id: Optional[int] = Field(default=None, foreign_key="categoria.id")
     categoria: Optional["Categoria"] = Relationship(back_populates="productos")
+    activo: bool = Field(default=True)
     ingrediente_links: List["ProductoIngrediente"] = Relationship(back_populates="producto", cascade_delete=True)

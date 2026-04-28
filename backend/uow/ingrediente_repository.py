@@ -13,6 +13,7 @@ class IngredienteRepository(BaseRepository[Ingrediente]):
     def find_by_nombre(self, nombre: str) -> List[Ingrediente]:
         """Busca ingredientes por nombre (contiene, case-insensitive)"""
         statement = select(Ingrediente).where(
-            func.lower(Ingrediente.nombre).contains(nombre.lower())
+            func.lower(Ingrediente.nombre).contains(nombre.lower()),
+            Ingrediente.activo == True
         )
         return self.session.exec(statement).all()
