@@ -22,24 +22,25 @@ class CategoriaService:
         return categoria
 
     def create(self, categoria: Categoria) -> Categoria:
-        categoria = self.uow.categorias.create(categoria)
-        self.uow.commit()
-        self.uow.session.refresh(categoria)
-        return categoria
-
+        with self.uow:
+            new_cat = self.uow.categorias.create(categoria)
+            self.uow.session.refresh(new_cat)
+            return new_cat
+    
     def update(self, categoria_id: int, datos: Categoria) -> Categoria:
-        categoria = self.get_by_id(categoria_id)
-        categoria.nombre = datos.nombre
-        categoria.descripcion = datos.descripcion
-        categoria = self.uow.categorias.update(categoria)
-        self.uow.commit()
-        self.uow.session.refresh(categoria)
-        return categoria
-
+        with self.uow:
+            categoria = self.get_by_id(categoria_id)
+            categoria.nombre = datos.nombre
+            categoria.descripcion = datos.descripcion
+            categoria.parent_id = datos.parent_id
+            categoria = self.uow.categorias.update(categoria)
+            self.uow.session.refresh(categoria)
+            return categoria
+    
     def delete(self, categoria_id: int) -> None:
-        self.get_by_id(categoria_id)
-        self.uow.categorias.delete(categoria_id)
-        self.uow.commit()
+        with self.uow:
+            self.get_by_id(categoria_id)
+            self.uow.categorias.delete(categoria_id)
 
     def esta_en_uso(self, categoria_id: int) -> dict:
         self.get_by_id(categoria_id)

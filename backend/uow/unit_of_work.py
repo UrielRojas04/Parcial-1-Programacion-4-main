@@ -14,6 +14,18 @@ class UnitOfWork:
         self.productos = ProductoRepository(session)
         self.producto_ingredientes = ProductoIngredienteRepository(session)
     
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            
+            self.session.rollback()
+            return False
+        
+        self.session.commit()
+        return True
+    
     def commit(self):
         self.session.commit()
     
