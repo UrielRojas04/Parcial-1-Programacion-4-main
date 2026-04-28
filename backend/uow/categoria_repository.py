@@ -14,5 +14,5 @@ class CategoriaRepository(BaseRepository[Categoria]):
         """Busca categorías por nombre (contiene, case-insensitive)"""
         statement = select(Categoria).where(
             func.lower(Categoria.nombre).contains(nombre.lower())
-        )
+        ).where(Categoria.activo == True)
         return self.session.exec(statement).all()

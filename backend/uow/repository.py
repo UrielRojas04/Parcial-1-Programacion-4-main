@@ -12,10 +12,16 @@ class BaseRepository(Generic[T]):
         self.model = model
     
     def get_by_id(self, id: int) -> Optional[T]:
-        return self.session.get(self.model, id)
+        statement = select(self.model).where(self.model.id == id)
+        if hasattr(self.model, "activo"):
+            statement = statement.where(self.model.activo == True)
+        return self.session.exec(statement).first()
     
     def get_all(self, offset: int = 0, limit: int = 10) -> List[T]:
-        statement = select(self.model).offset(offset).limit(limit)
+        statement = select(self.model)
+        if hasattr(self.model, "activo"):
+            statement = statement.where(self.model.activo == True)
+        statement = statement.offset(offset).limit(limit)
         return self.session.exec(statement).all()
     
     def create(self, obj: T) -> T:
@@ -31,7 +37,11 @@ class BaseRepository(Generic[T]):
     def delete(self, id: int) -> bool:
         obj = self.get_by_id(id)
         if obj:
-            self.session.delete(obj)
+            if hasattr(obj, "activo"):
+                obj.activo = False
+                self.session.merge(obj)
+            else:
+                self.session.delete(obj)
             self.session.flush()
             return True
         return False
